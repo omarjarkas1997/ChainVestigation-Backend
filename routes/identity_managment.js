@@ -6,13 +6,8 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
 
-// Check if JWT_SECRET is provided
-if (!process.env.JWT_SECRET) {
-    console.error('FATAL ERROR: JWT_SECRET is not defined.');
-    process.exit(1);
-}
 
-const JWT_SECRET = process.env.JWT_SECRET || "Hello World!";
+const JWT_SECRET = "Hello World!";
 
 // Middleware to check if the user is an admin
 const checkAdmin = (req, res, next) => {
