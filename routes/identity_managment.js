@@ -1,3 +1,4 @@
+
 require('dotenv').config();
 const express = require('express');
 const User = require('../models/user.model');
@@ -11,7 +12,7 @@ if (!process.env.JWT_SECRET) {
     process.exit(1);
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || "hello world";
+const JWT_SECRET = process.env.JWT_SECRET || "Hello World!";
 
 // Middleware to check if the user is an admin
 const checkAdmin = (req, res, next) => {
@@ -24,7 +25,7 @@ const checkAdmin = (req, res, next) => {
 
 function createToken(user) {
     const payload = { id: user._id, roles: user.roles };
-    return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+    return jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
 }
 
 // Utility function to create the response user object
