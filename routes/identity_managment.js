@@ -11,7 +11,7 @@ if (!process.env.JWT_SECRET) {
     process.exit(1);
 }
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || "hello world";
 
 // Middleware to check if the user is an admin
 const checkAdmin = (req, res, next) => {
