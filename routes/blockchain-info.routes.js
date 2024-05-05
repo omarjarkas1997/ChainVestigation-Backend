@@ -4,77 +4,128 @@ const { exec } = require('child_process');
 const client = require('../bitcoinClient');
 const Block = require('../models/bitcoin/bitcoin.block.model');
 const Transaction = require('../models/bitcoin/bitcoin.transaction.model');
+const fetch = require('node-fetch');
+const request = require('request');
+const { getBlockchainInfo,
+    getBlockCount,
+    getBestBlockHash,
+    getdifficulty,
+    getBlockHash,
+    getBlock,
+    getBlockByHeight
+} = require('../middleware/blockchain_functions');
 
 
 router.get('/get-blockchain-info', async (req, res) => {
     try {
-        const blockchainInfo = await client.getBlockchainInfo();
-        res.json(blockchainInfo);
-    } catch (err) {
-        res.status(500).json({ error: err });
+        getBlockchainInfo((error, result) => {
+            if (error) {
+                console.error("Failed to fetch blockchain info:", error);
+                return res.status(500).json({ error: 'Internal server error' });
+            }
+            res.json(result);
+        });
+    } catch (error) {
+        console.error("Server error:", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-
 router.get('/get-block-count', async (req, res) => {
     try {
-        const blockCount = await client.getBlockCount();
-        res.json(blockCount);
+        getBlockCount((error, blockCount) => {
+            if (error) {
+                console.error("Failed to fetch block count:", error);
+                return res.status(500).json({ error: 'Internal server error' });
+            }
+            res.json({ blockCount });
+        });
     } catch (err) {
-        res.status(500).json({ error: err });
+        console.error("Server error:", err);
+        res.status(500).json({ error: 'Internal server error', details: err.message });
     }
 });
 
 router.get('/get-best-block-hash', async (req, res) => {
     try {
-        const bestBlockHash = await client.getBestBlockHash();
-        res.json(bestBlockHash);
+        getBestBlockHash((error, bestBlockHash) => {
+            if (error) {
+                console.error("Failed to fetch best block hash:", error);
+                return res.status(500).json({ error: 'Internal server error' });
+            }
+            res.json({ bestBlockHash });
+        });
     } catch (err) {
-        res.status(500).json({ error: err });
+        console.error("Server error:", err);
+        res.status(500).json({ error: 'Internal server error', details: err.message });
     }
 });
 
 router.get('/get-difficulty', async (req, res) => {
     try {
-        const difficulty = await client.getDifficulty();
-        res.json(difficulty);
+        getdifficulty((error, difficulty) => {
+            if (error) {
+                console.error("Failed to fetch difficulty:", error);
+                return res.status(500).json({ error: 'Internal server error' });
+            }
+            res.json({ difficulty });
+        });
     } catch (err) {
-        res.status(500).json({ error: err });
+        console.error("Server error:", err);
+        res.status(500).json({ error: 'Internal server error', details: err.message });
     }
 });
 
 
 router.get('/get-block-hash/:height', async (req, res) => {
     try {
-        const blockHeight = parseInt(req.params.height, 10); // Convert the height string to a number
-        
+        const blockHeight = parseInt(req.params.height, 10);
+
         if (isNaN(blockHeight)) {
             return res.status(400).json({ error: "Invalid block height provided." });
         }
 
-        const blockHash = await client.getBlockHash(blockHeight);
-        res.json({ blockHash });
-    } catch (err) {
-        res.status(500).json({ error: err.toString() }); // Convert the error object to a string to ensure its message gets sent
+        getBlockHash(blockHeight, (error, result) => {
+            if (error) {
+                console.error("Failed to fetch block hash:", error);
+                return res.status(500).json({ error: 'Internal server error' });
+            }
+            res.json({ blockHash: result });
+        });
+    } catch (error) {
+        console.error("Server error:", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
 router.get('/get-block/:hash', async (req, res) => {
     try {
-        const block = await client.getBlock(req.params.hash);
-        res.json(block);
-    } catch (err) {
-        res.status(500).json({ error: err });
+        getBlock(req.params.hash, (error, result) => {
+            if (error) {
+                console.error("Failed to fetch block info:", error);
+                return res.status(500).json({ error: 'Internal server error' });
+            }
+            res.json(result);
+        });
+    } catch (error) {
+        console.error("Server error:", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
 
 router.get('/get-block-header/:hash', async (req, res) => {
     try {
-        const blockHeader = await client.getBlockHeader(req.params.hash);
-        res.json(blockHeader);
-    } catch (err) {
-        res.status(500).json({ error: err });
+        getBlockByHeight(req.params.hash, (error, result) => {
+            if (error) {
+                console.error("Failed to fetch block info:", error);
+                return res.status(500).json({ error: 'Internal server error' });
+            }
+            res.json(result);
+        });
+    } catch (error) {
+        console.error("Server error:", error);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
@@ -94,7 +145,7 @@ router.get('/get-transaction/:txid', async (req, res) => {
     try {
         const txid = req.params.txid;
         const transaction = await client.getTransaction(txid);
-        res.json(transaction);1
+        res.json(transaction); 1
     } catch (err) {
         res.status(500).json({ error: err.toString() });
     }
@@ -136,21 +187,21 @@ router.get('/scanutxo/:address', async (req, res) => {
     const address = req.params.address;
     const command = `bitcoin-cli scantxoutset start '["addr(${address})"]'`;
     exec(command, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Error executing command: ${error.message}`);
-        return res.status(500).send({ success: false, error: error.message });
-      }
-      if (stderr) {
-        console.error(`Error in command output: ${stderr}`);
-        return res.status(500).send({ success: false, error: stderr });
-      }
-      try {
-        const result = JSON.parse(stdout);
-        res.send(result);
-      } catch (parseError) {
-        console.error(`Error parsing JSON: ${parseError}`);
-        res.status(500).send({ success: false, error: parseError.message });
-      }
+        if (error) {
+            console.error(`Error executing command: ${error.message}`);
+            return res.status(500).send({ success: false, error: error.message });
+        }
+        if (stderr) {
+            console.error(`Error in command output: ${stderr}`);
+            return res.status(500).send({ success: false, error: stderr });
+        }
+        try {
+            const result = JSON.parse(stdout);
+            res.send(result);
+        } catch (parseError) {
+            console.error(`Error parsing JSON: ${parseError}`);
+            res.status(500).send({ success: false, error: parseError.message });
+        }
     });
 });
 
@@ -226,7 +277,7 @@ async function saveTransaction(transactionData) {
 // Route to save a block at a specific height
 router.get('/save-block/:height', async (req, res) => {
     try {
-        const blockHeight = parseInt(req.params.height, 10); 
+        const blockHeight = parseInt(req.params.height, 10);
         if (isNaN(blockHeight)) {
             return res.status(400).json({ error: "Invalid block height provided." });
         }
@@ -258,7 +309,7 @@ router.get('/save-blocks-up-to/:lowerBoundHeight/:upperBoundHeight', async (req,
 });
 
 router.get('/save-all-transactions-on-the-block', async (req, res) => {
-    
+
 });
 
 router.get('/save-transactions-in-block/:hash', async (req, res) => {
@@ -275,9 +326,9 @@ router.get('/save-transactions-in-block/:hash', async (req, res) => {
         console.log(existingBlock.tx);
 
         for (let transaction of existingBlock.tx) {
-            const transactionData = await getSaveTransaction(transaction, blockHash); 
+            const transactionData = await getSaveTransaction(transaction, blockHash);
         }
-        
+
 
         res.status(200).json({ message: `Transactions in block ${blockHash} processed successfully.` });
     } catch (err) {
@@ -288,12 +339,31 @@ router.get('/save-transactions-in-block/:hash', async (req, res) => {
 
 router.get('/get-last-10-blocks/:nbrBlock', async (req, res) => {
     try {
-        const nbrBlock = req.params.nbrBlock;
-        const blockchainInfo = await client.getBlockchainInfo();
-        let currentHash = blockchainInfo.bestblockhash;
+        const nbrBlock = parseInt(req.params.nbrBlock, 10);
+        const response = await new Promise((resolve, reject) => {
+            getBestBlockHash((error, bestBlockHash) => {
+                if (error) {
+                    reject(error);
+                } else {
+                    resolve(bestBlockHash);
+                }
+            });
+        });
+
+        let currentHash = response;
         const blocks = [];
+
         for (let i = 0; i < nbrBlock; i++) {
-            const block = await client.getBlock(currentHash);
+            const block = await new Promise((resolve, reject) => {
+                getBlock(currentHash, (error, blockInfo) => {
+                    if (error) {
+                        reject(error);
+                    } else {
+                        resolve(blockInfo);
+                    }
+                });
+            });
+
             blocks.push(block);
 
             // Break if there's no previous block (in case the chain is shorter than 10 blocks)
@@ -301,9 +371,11 @@ router.get('/get-last-10-blocks/:nbrBlock', async (req, res) => {
 
             currentHash = block.previousblockhash;
         }
+
         res.json(blocks);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error("Failed to fetch blocks:", err);
+        res.status(500).json({ error: 'Internal server error', details: err.message });
     }
 });
 
